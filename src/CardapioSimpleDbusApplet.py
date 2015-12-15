@@ -16,25 +16,30 @@
 #
 
 try:
-    from CardapioAppletInterface import *
+	from CardapioAppletInterface import *
 
 except Exception, exception:
-    fatal_error('Fatal error loading Cardapio', exception)
-    sys.exit(1)
+	fatal_error('Fatal error loading Cardapio', exception)
+	sys.exit(1)
 
 
 class CardapioSimpleDbusApplet(CardapioAppletInterface):
-    panel_type = PANEL_TYPE_SIMPLEDBUS
 
-    IS_CONFIGURABLE = True
-    IS_CONTROLLABLE = False
+	panel_type = PANEL_TYPE_SIMPLEDBUS
 
-    def __init__(self, bus):
-        self._applet = bus.get_object('org.varal.CardapioSimpleDbusApplet', '/org/varal/CardapioSimpleDbusApplet')
+	IS_CONFIGURABLE = True
+	IS_CONTROLLABLE = False
 
-    def update_from_user_settings(self, settings):
-        label = settings['applet label']
-        icon = settings['applet icon']
-        self._applet.configure_applet_button(label, icon)
+
+	def __init__(self, bus):
+
+		self._applet = bus.get_object('org.varal.CardapioSimpleDbusApplet', '/org/varal/CardapioSimpleDbusApplet')
+
+
+	def update_from_user_settings(self, settings):
+
+		label = settings['applet label']
+		icon  = settings['applet icon']
+		self._applet.configure_applet_button(label, icon)
 
 

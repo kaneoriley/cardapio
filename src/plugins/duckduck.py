@@ -19,221 +19,231 @@
 ## Duck Duck Go search plugin by Clifton Mulkey
 ## Adapted from the Google Search plugin
 class CardapioPlugin(CardapioPluginInterface):
-    author = _('Cardapio Team')
-    name = _('DuckDuckGo')
-    description = _('Perform quick DuckDuckGo searches')
 
-    url = ''
-    help_text = ''
-    version = '1.0'
+	author             = _('Cardapio Team')
+	name               = _('DuckDuckGo')
+	description        = _('Perform quick DuckDuckGo searches')
 
-    plugin_api_version = 1.40
+	url                = ''
+	help_text          = ''
+	version            = '1.0'
 
-    search_delay_type = 'remote'
+	plugin_api_version = 1.40
 
-    default_keyword = 'duck'
+	search_delay_type  = 'remote'
 
-    category_name = _('DuckDuckGo Results')
-    category_icon = 'system-search'
-    icon = 'system-search'
-    category_tooltip = _('Results found with DuckDuckGo')
-    hide_from_sidebar = True
+	default_keyword    = 'duck'
 
-    def __init__(self, cardapio_proxy, category):
+	category_name      = _('DuckDuckGo Results')
+	category_icon      = 'system-search'
+	icon               = 'system-search'
+	category_tooltip   = _('Results found with DuckDuckGo')
+	hide_from_sidebar  = True
 
-        self.c = cardapio_proxy
 
-        try:
-            from gio import File, Cancellable
-            from urllib2 import quote
-            from simplejson import loads
-            from locale import getdefaultlocale
-            from glib import GError
+	def __init__(self, cardapio_proxy, category):
 
-        except Exception, exception:
-            self.c.write_to_log(self, 'Could not import certain modules', is_error=True)
-            self.c.write_to_log(self, exception, is_error=True)
-            self.loaded = False
-            return
+		self.c = cardapio_proxy
+		
+		try:
+			from gio import File, Cancellable
+			from urllib2 import quote
+			from simplejson import loads
+			from locale import getdefaultlocale
+			from glib import GError
 
-        self.File = File
-        self.Cancellable = Cancellable
-        self.quote = quote
-        self.loads = loads
-        self.getdefaultlocale = getdefaultlocale
-        self.GError = GError
+		except Exception, exception:
+			self.c.write_to_log(self, 'Could not import certain modules', is_error = True)
+			self.c.write_to_log(self, exception, is_error = True)
+			self.loaded = False
+			return
+		
+		self.File             = File
+		self.Cancellable      = Cancellable
+		self.quote            = quote
+		self.loads            = loads
+		self.getdefaultlocale = getdefaultlocale
+		self.GError           = GError
 
-        self.query_url = r'http://www.duckduckgo.com/?q={0}&o=json'
+		self.query_url = r'http://www.duckduckgo.com/?q={0}&o=json'
 
-        self.search_controller = self.Cancellable()
+		self.search_controller = self.Cancellable()
 
-        self.action_command = "xdg-open 'http://duckduckgo.com/?q=%s'"
-        self.action = {
-            'name': _('Show additional results'),
-            'tooltip': _('Show additional search results in your web browser'),
-            'icon name': 'system-search',
-            'type': 'callback',
-            'command': self.more_results_action,
-            'context menu': None,
-        }
+		self.action_command = "xdg-open 'http://duckduckgo.com/?q=%s'"
+		self.action = {
+			'name'         : _('Show additional results'),
+			'tooltip'      : _('Show additional search results in your web browser'),
+			'icon name'    : 'system-search',
+			'type'         : 'callback',
+			'command'      : self.more_results_action,
+			'context menu' : None,
+			}
+		
+		
 
-        self.loaded = True
+		self.loaded = True
 
-    def search(self, text, result_limit):
 
-        # TODO: I'm sure this is not the best way of doing remote procedure
-        # calls, but I can't seem to find anything that is this easy to use and
-        # compatible with gtk. Argh :(
+	def search(self, text, result_limit):
 
-        # TODO: we should really check if there's an internet connection before
-        # proceeding...
+		# TODO: I'm sure this is not the best way of doing remote procedure
+		# calls, but I can't seem to find anything that is this easy to use and
+		# compatible with gtk. Argh :(
 
-        self.current_query = text
-        text = self.quote(str(text))
+		# TODO: we should really check if there's an internet connection before
+		# proceeding...
 
-        # Is there a way to get the result_limit in the init method
-        # so we don't have to assign it everytime search is called?
-        self.result_limit = result_limit
+		self.current_query = text
+		text = self.quote(str(text))
+		
+		# Is there a way to get the result_limit in the init method
+		# so we don't have to assign it everytime search is called?
+		self.result_limit = result_limit
 
-        query = self.query_url.format(text)
+		query = self.query_url.format(text)
 
-        self.stream = self.File(query)
+		self.stream = self.File(query)
 
-        self.search_controller.reset()
-        self.stream.load_contents_async(self.handle_search_result, cancellable=self.search_controller)
+		self.search_controller.reset()
+		self.stream.load_contents_async(self.handle_search_result, cancellable = self.search_controller)
 
-    def cancel(self):
 
-        if not self.search_controller.is_cancelled():
-            self.search_controller.cancel()
+	def cancel(self):
 
-    def handle_search_result(self, gdaemonfile=None, response=None):
-        # This function parses the results from the query
-        # The results returned from DDG are a little convoluted
-        # so we have to check for many different types of results here
+		if not self.search_controller.is_cancelled():
+			self.search_controller.cancel()
 
-        result_count = 0;
+	
+	def handle_search_result(self, gdaemonfile = None, response = None):
+		# This function parses the results from the query
+		# The results returned from DDG are a little convoluted
+		# so we have to check for many different types of results here
+		
+		result_count = 0;
 
-        try:
-            response = self.stream.load_contents_finish(response)[0]
+		try:
+			response = self.stream.load_contents_finish(response)[0]
 
-        except self.GError, e:
-            # no need to worry if there's no response: maybe there's no internet
-            # connection...
-            self.c.handle_search_error(self, 'no response')
-            return
+		except self.GError, e:
+			# no need to worry if there's no response: maybe there's no internet
+			# connection...
+			self.c.handle_search_error(self, 'no response')
+			return
 
-        raw_results = self.loads(response)
+		raw_results = self.loads(response)
+		
+		# print raw_results
+		parsed_results = [] 
 
-        # print raw_results
-        parsed_results = []
+		if 'Error' in raw_results:
+			self.c.handle_search_error(self, raw_results['Error'])
+			return
+		
+		# check for an abstract section
+		try:
+			if raw_results['Abstract']:
+				item = {
+					'name'         : raw_results['Heading'],
+					'tooltip'      : '(%s) %s' % (raw_results['AbstractSource'], raw_results['AbstractText']),
+					'icon name'    : 'text-html',
+					'type'         : 'xdg',
+					'command'      : raw_results['AbstractURL'],
+					'context menu' : None,
+					}
+				parsed_results.append(item)
+				result_count += 1
+		except KeyError:
+			pass
+			
+		# check for a definition section
+		try:
+			if raw_results['Definition']:
+				item = {
+					'name'         : '%s (Definition)' % raw_results['Heading'],
+					'tooltip'      : '(%s) %s' % (raw_results['DefinitionSource'], raw_results['Definition']),
+					'icon name'    : 'text-html',
+					'type'         : 'xdg',
+					'command'      : raw_results['DefinitionURL'],
+					'context menu' : None,
+					}
+				parsed_results.append(item)
+				result_count += 1
+		except KeyError:
+			pass
+		
+		# check for a related topics section
+		try:
+			if raw_results['RelatedTopics']:
+				for raw_result in raw_results['RelatedTopics']:
+					if result_count >= self.result_limit: break
+						
+					#some related topics have a 'Topics' sub list
+					try: 
+						for result in raw_result['Topics']:
+								if result_count >= self.result_limit: break
+									
+								item = {
+									'name'         : result['Text'],
+									'tooltip'      : result['FirstURL'],
+									'icon name'    : 'text-html',
+									'type'         : 'xdg',
+									'command'      : result['FirstURL'],
+									'context menu' : None,
+									}
+								parsed_results.append(item)
+								result_count += 1
+					except KeyError:		
+					#otherwise the RelatedTopic is a single entry
+						item = {
+						'name'         : raw_result['Text'],
+						'tooltip'      : raw_result['FirstURL'],
+						'icon name'    : 'text-html',
+						'type'         : 'xdg',
+						'command'      : raw_result['FirstURL'],
+						'context menu' : None,
+						}
+						parsed_results.append(item)
+						result_count += 1
+		except KeyError:
+			pass
+		
+		# check for external results section
+		try:
+			if raw_results['Results']:
+				for raw_result in raw_results['Results']:
+					if result_count >= self.result_limit: break
+			
+					item = {
+					'name'         : raw_result['Text'],
+					'tooltip'      : raw_result['FirstURL'],
+					'icon name'    : 'text-html',
+					'type'         : 'xdg',
+					'command'      : raw_result['FirstURL'],
+					'context menu' : None,
+					}
+					parsed_results.append(item)
+					result_count += 1
+				
+		except KeyError:
+			pass
+		
+		
 
-        if 'Error' in raw_results:
-            self.c.handle_search_error(self, raw_results['Error'])
-            return
+		if parsed_results:
+			parsed_results.append(self.action)
 
-        # check for an abstract section
-        try:
-            if raw_results['Abstract']:
-                item = {
-                    'name': raw_results['Heading'],
-                    'tooltip': '(%s) %s' % (raw_results['AbstractSource'], raw_results['AbstractText']),
-                    'icon name': 'text-html',
-                    'type': 'xdg',
-                    'command': raw_results['AbstractURL'],
-                    'context menu': None,
-                }
-                parsed_results.append(item)
-                result_count += 1
-        except KeyError:
-            pass
+		self.c.handle_search_result(self, parsed_results, self.current_query)
 
-        # check for a definition section
-        try:
-            if raw_results['Definition']:
-                item = {
-                    'name': '%s (Definition)' % raw_results['Heading'],
-                    'tooltip': '(%s) %s' % (raw_results['DefinitionSource'], raw_results['Definition']),
-                    'icon name': 'text-html',
-                    'type': 'xdg',
-                    'command': raw_results['DefinitionURL'],
-                    'context menu': None,
-                }
-                parsed_results.append(item)
-                result_count += 1
-        except KeyError:
-            pass
 
-        # check for a related topics section
-        try:
-            if raw_results['RelatedTopics']:
-                for raw_result in raw_results['RelatedTopics']:
-                    if result_count >= self.result_limit: break
+	def more_results_action(self, text):
 
-                    #some related topics have a 'Topics' sub list
-                    try:
-                        for result in raw_result['Topics']:
-                            if result_count >= self.result_limit: break
+		text = text.replace("'", r"\'")
+		text = text.replace('"', r'\"')
 
-                            item = {
-                                'name': result['Text'],
-                                'tooltip': result['FirstURL'],
-                                'icon name': 'text-html',
-                                'type': 'xdg',
-                                'command': result['FirstURL'],
-                                'context menu': None,
-                            }
-                            parsed_results.append(item)
-                            result_count += 1
-                    except KeyError:
-                        #otherwise the RelatedTopic is a single entry
-                        item = {
-                            'name': raw_result['Text'],
-                            'tooltip': raw_result['FirstURL'],
-                            'icon name': 'text-html',
-                            'type': 'xdg',
-                            'command': raw_result['FirstURL'],
-                            'context menu': None,
-                        }
-                        parsed_results.append(item)
-                        result_count += 1
-        except KeyError:
-            pass
-
-        # check for external results section
-        try:
-            if raw_results['Results']:
-                for raw_result in raw_results['Results']:
-                    if result_count >= self.result_limit: break
-
-                    item = {
-                        'name': raw_result['Text'],
-                        'tooltip': raw_result['FirstURL'],
-                        'icon name': 'text-html',
-                        'type': 'xdg',
-                        'command': raw_result['FirstURL'],
-                        'context menu': None,
-                    }
-                    parsed_results.append(item)
-                    result_count += 1
-
-        except KeyError:
-            pass
-
-        if parsed_results:
-            parsed_results.append(self.action)
-
-        self.c.handle_search_result(self, parsed_results, self.current_query)
-
-    def more_results_action(self, text):
-
-        text = text.replace("'", r"\'")
-        text = text.replace('"', r'\"')
-
-        try:
-            subprocess.Popen(self.action_command % text, shell=True)
-        except OSError, e:
-            self.c.write_to_log(self, 'Error launching plugin action.', is_error=True)
-            self.c.write_to_log(self, e, is_error=True)
+		try:
+			subprocess.Popen(self.action_command % text, shell = True)
+		except OSError, e:
+			self.c.write_to_log(self, 'Error launching plugin action.', is_error = True)
+			self.c.write_to_log(self, e, is_error = True)
 
 

@@ -18,208 +18,208 @@
 from misc import *
 
 try:
-    import re
-    import os
-    import gtk
-    import gio
-    import json
-    import logging
-    from xdg import BaseDirectory
+	import re
+	import os
+	import gtk
+	import gio
+	import json
+	import logging
+	from xdg import BaseDirectory
 
 except Exception, exception:
-    fatal_error('Fatal error loading Cardapio libraries', exception)
-    import sys
-
-    sys.exit(1)
+	fatal_error('Fatal error loading Cardapio libraries', exception)
+	import sys
+	sys.exit(1)
 
 
 class IconHelper:
-    def __init__(self):
 
-        self.icon_extension_types = re.compile('.*\.(png|xpm|svg)$')
-        self.icon_theme = gtk.icon_theme_get_default()
+	def __init__(self):
 
-        self.icon_size_app = gtk.icon_size_lookup(gtk.ICON_SIZE_LARGE_TOOLBAR)[0]
-        self.icon_size_category = gtk.icon_size_lookup(gtk.ICON_SIZE_MENU)[0]
-        self.icon_size_menu = gtk.icon_size_lookup(gtk.ICON_SIZE_MENU)[0]
+		self.icon_extension_types = re.compile('.*\.(png|xpm|svg)$')
+		self.icon_theme = gtk.icon_theme_get_default()
 
-        uninstalled_icon_path = '/usr/share/app-install/icons/'
-        if os.path.exists(uninstalled_icon_path):
-            self.icon_theme.append_search_path(uninstalled_icon_path)
+		self.icon_size_app = gtk.icon_size_lookup(gtk.ICON_SIZE_LARGE_TOOLBAR)[0]
+		self.icon_size_category = gtk.icon_size_lookup(gtk.ICON_SIZE_MENU)[0]
+		self.icon_size_menu = gtk.icon_size_lookup(gtk.ICON_SIZE_MENU)[0]
 
-        self._listener = return_true
-        self.icon_theme.connect('changed', self._on_icon_theme_changed)
+		uninstalled_icon_path = '/usr/share/app-install/icons/'
+		if os.path.exists(uninstalled_icon_path):
+			self.icon_theme.append_search_path(uninstalled_icon_path)
 
-    def get_icon_pixbuf(self, icon_name_or_path, icon_size, fallback_icon='application-x-executable'):
-        """
-        Returns a GTK Image from a given icon name and size. The icon name can be
-        either a path or a named icon from the GTK theme.
-        """
+		self._listener = return_true
+		self.icon_theme.connect('changed', self._on_icon_theme_changed)
 
-        # TODO: speed this up as much as possible!
 
-        if not icon_name_or_path:
-            icon_name_or_path = fallback_icon
+	def get_icon_pixbuf(self, icon_name_or_path, icon_size, fallback_icon = 'application-x-executable'):
+		"""
+		Returns a GTK Image from a given icon name and size. The icon name can be
+		either a path or a named icon from the GTK theme.
+		"""
 
-        icon_name = icon_name_or_path
+		# TODO: speed this up as much as possible!
 
-        # if icon_name_or_path is something like /dir/myfile.png, and if it
-        # points to a valid file, try reading the file into a pixbuf and return it
-        if os.path.isabs(icon_name_or_path):
-            if os.path.isfile(icon_name_or_path):
-                try:
-                    return gtk.gdk.pixbuf_new_from_file_at_size(icon_name_or_path, icon_size, icon_size)
-                except:
-                    pass
+		if not icon_name_or_path:
+			icon_name_or_path = fallback_icon
 
-        icon_name = self._get_icon_name_from_icon_path(icon_name_or_path)
+		icon_name = icon_name_or_path
 
-        # try loading the icon from the theme
-        cleaned_icon_name = self.get_icon_name_from_theme(icon_name)
-        if cleaned_icon_name is not None:
-            try:
-                return self.icon_theme.load_icon(cleaned_icon_name, icon_size, gtk.ICON_LOOKUP_FORCE_SIZE)
-            except:
-                pass
+		# if icon_name_or_path is something like /dir/myfile.png, and if it
+		# points to a valid file, try reading the file into a pixbuf and return it
+		if os.path.isabs(icon_name_or_path):
+			if os.path.isfile(icon_name_or_path):
+				try: return gtk.gdk.pixbuf_new_from_file_at_size(icon_name_or_path, icon_size, icon_size)
+				except: pass
 
-        # otherwise, try loading the icon from /usr/share/pixmaps
-        # or /usr/share/icons (non-recursive, of course!)
-        for dir_ in BaseDirectory.xdg_data_dirs:
-            for subdir in ('pixmaps', 'icons'):
-                path = os.path.join(dir_, subdir, icon_name_or_path)
-                if os.path.isfile(path):
-                    try:
-                        return gtk.gdk.pixbuf_new_from_file_at_size(path, icon_size, icon_size)
-                    except:
-                        pass
+		icon_name = self._get_icon_name_from_icon_path(icon_name_or_path)
 
-        # otherwise, return fallback icon
-        return self.icon_theme.load_icon(fallback_icon, icon_size, gtk.ICON_LOOKUP_FORCE_SIZE)
+		# try loading the icon from the theme 
+		cleaned_icon_name = self.get_icon_name_from_theme(icon_name)
+		if cleaned_icon_name is not None:
+			try: return self.icon_theme.load_icon(cleaned_icon_name, icon_size, gtk.ICON_LOOKUP_FORCE_SIZE)
+			except: pass
 
-    def get_icon_name_from_theme(self, icon_name):
-        """
-        Find out if this icon exists in the theme (such as 'gtk-open'), or if
-        it's a mimetype (such as audio/mpeg, which has an icon audio-mpeg), or
-        if it has a generic mime icon (such as audio-x-generic).
-        """
+		# otherwise, try loading the icon from /usr/share/pixmaps 
+		# or /usr/share/icons (non-recursive, of course!)
+		for dir_ in BaseDirectory.xdg_data_dirs:
+			for subdir in ('pixmaps', 'icons'):
+				path = os.path.join(dir_, subdir, icon_name_or_path)
+				if os.path.isfile(path):
+					try: return gtk.gdk.pixbuf_new_from_file_at_size(path, icon_size, icon_size)
+					except: pass
 
-        # replace slashed with dashes for mimetype icons
-        cleaned_icon_name = icon_name.replace('/', '-')
+		# otherwise, return fallback icon
+		return self.icon_theme.load_icon(fallback_icon, icon_size, gtk.ICON_LOOKUP_FORCE_SIZE)
 
-        if self.icon_theme.has_icon(cleaned_icon_name):
-            return cleaned_icon_name
 
-        # try generic mimetype
-        gen_type = cleaned_icon_name.split('-')[0]
-        cleaned_icon_name = gen_type + '-x-generic'
-        if self.icon_theme.has_icon(cleaned_icon_name):
-            return cleaned_icon_name
+	def get_icon_name_from_theme(self, icon_name):
+		"""
+		Find out if this icon exists in the theme (such as 'gtk-open'), or if
+		it's a mimetype (such as audio/mpeg, which has an icon audio-mpeg), or
+		if it has a generic mime icon (such as audio-x-generic).
+		"""
 
-        return None
+		# replace slashed with dashes for mimetype icons
+		cleaned_icon_name = icon_name.replace('/', '-')
 
-    def get_icon_name_for_path(self, path):
-        """
-        Gets the icon name for a given path using GIO
-        """
+		if self.icon_theme.has_icon(cleaned_icon_name):
+			return cleaned_icon_name
 
-        info = None
+		# try generic mimetype
+		gen_type = cleaned_icon_name.split('-')[0]
+		cleaned_icon_name = gen_type + '-x-generic'
+		if self.icon_theme.has_icon(cleaned_icon_name):
+			return cleaned_icon_name
 
-        try:
-            file_ = gio.File(path)
-            info = file_.query_info('standard::icon')
+		return None
 
-        except Exception, exception:
-            logging.warn('Could not get icon for %s' % path)
-            logging.warn(exception)
-            return None
 
-        if info is not None:
-            icon_names = info.get_icon().get_names()
+	def get_icon_name_for_path(self, path):
+		"""
+		Gets the icon name for a given path using GIO
+		"""
 
-            # if there are several icons available, as the theme for the name of the best one
-            # (except there's no good way of doing that, so we need to ask for the best
-            # *filename* and then get the icon name from the filename. Argh.
-            if type(icon_names) == list:
-                info = self.icon_theme.choose_icon(icon_names, self.icon_size_app, 0)
-                if info is not None:
-                    return self._get_icon_name_from_icon_path(info.get_filename())
+		info = None
 
-            else:
-                if self.icon_theme.has_icon(icon_names[0]): return icon_names[0]
+		try:
+			file_ = gio.File(path)
+			info = file_.query_info('standard::icon')
 
-        return None
+		except Exception, exception:
+			logging.warn('Could not get icon for %s' % path)
+			logging.warn(exception)
+			return None
 
-    def get_icon_name_from_gio_icon(self, gio_icon, icon_size=None):
-        """
-        Gets the icon name from a GIO icon object
-        """
+		if info is not None:
+			icon_names = info.get_icon().get_names()
 
-        if icon_size == None: icon_size = self.icon_size_app
+			# if there are several icons available, as the theme for the name of the best one
+			# (except there's no good way of doing that, so we need to ask for the best
+			# *filename* and then get the icon name from the filename. Argh.
+			if type(icon_names) == list:
+				info = self.icon_theme.choose_icon(icon_names, self.icon_size_app, 0)
+				if info is not None: 
+					return self._get_icon_name_from_icon_path(info.get_filename())
+				
+			else:
+				if self.icon_theme.has_icon(icon_names[0]): return icon_names[0]
 
-        try:
-            names = self.icon_theme.lookup_by_gicon(gio_icon, icon_size, 0)
-            if names: return names.get_filename()
+		return None
 
-        except:
-            pass
 
-        try:
-            for name in gio_icon.get_names():
-                if self.icon_theme.has_icon(name): return name
+	def get_icon_name_from_gio_icon(self, gio_icon, icon_size = None):
+		"""
+		Gets the icon name from a GIO icon object
+		"""
 
-        except:
-            pass
+		if icon_size == None: icon_size = self.icon_size_app
 
-        return None
+		try:
+			names = self.icon_theme.lookup_by_gicon(gio_icon, icon_size, 0)
+			if names: return names.get_filename()
 
-    def get_icon_name_from_app_info(self, app_info, fallback_icon):
-        """
-        Returns the icon name given an app_info dictionary. This is useful for
-        plugins mostly, since they may request icons for non-traditional documents
-        which cannot be handled by GIO.
-        """
+		except: pass
 
-        icon_name = app_info['icon name']
-        fallback_icon = fallback_icon or 'text-x-generic'
+		try:
+			for name in gio_icon.get_names():
+				if self.icon_theme.has_icon(name): return name
 
-        # TODO: remove lines below by November 2011
-        #if icon_name == 'inode/symlink':
-        #	icon_name = None
+		except: pass
 
-        if icon_name is not None:
-            icon_name = self.get_icon_name_from_theme(icon_name)
+		return None
 
-        elif app_info['type'] == 'xdg':
-            icon_name = self.get_icon_name_for_path(app_info['command'])
 
-        if icon_name is None:
-            icon_name = fallback_icon
+	def get_icon_name_from_app_info(self, app_info, fallback_icon):
+		"""
+		Returns the icon name given an app_info dictionary. This is useful for 
+		plugins mostly, since they may request icons for non-traditional documents
+		which cannot be handled by GIO.
+		"""
 
-        return icon_name
+		icon_name = app_info['icon name']
+		fallback_icon = fallback_icon or 'text-x-generic'
 
-    def register_icon_theme_listener(self, listener):
-        """
-        Registed a function to be called when we detect that the icon theme has
-        changed
-        """
-        self._listener = listener
+		# TODO: remove lines below by November 2011
+		#if icon_name == 'inode/symlink':
+		#	icon_name = None
 
-    def _get_icon_name_from_icon_path(self, filepath):
+		if icon_name is not None:
+			icon_name = self.get_icon_name_from_theme(icon_name)
 
-        # get the last part of the file (i.e. myfile.png)
-        icon_name = os.path.basename(filepath)
+		elif app_info['type'] == 'xdg':
+			icon_name = self.get_icon_name_for_path(app_info['command'])
 
-        # remove the file extension, if it exists (becomes myfile)
-        dot_pos = icon_name.find('.')
-        if dot_pos >= 0: icon_name = icon_name[:dot_pos]
+		if icon_name is None:
+			icon_name = fallback_icon
 
-        return icon_name
+		return icon_name
 
-    def _on_icon_theme_changed(self, icon_theme):
-        """
-        Rebuild the Cardapio UI whenever the icon theme changes
-        """
 
-        self._listener()
+	def register_icon_theme_listener(self, listener):
+		"""
+		Registed a function to be called when we detect that the icon theme has
+		changed
+		"""
+		self._listener = listener
+
+
+	def _get_icon_name_from_icon_path(self, filepath):
+
+		# get the last part of the file (i.e. myfile.png)
+		icon_name = os.path.basename(filepath)
+
+		# remove the file extension, if it exists (becomes myfile)
+		dot_pos = icon_name.find('.')
+		if dot_pos >= 0: icon_name = icon_name[:dot_pos]
+
+		return icon_name
+
+
+	def _on_icon_theme_changed(self, icon_theme):
+		"""
+		Rebuild the Cardapio UI whenever the icon theme changes
+		"""
+
+		self._listener()
 
 

@@ -16,174 +16,176 @@
 #
 
 class CardapioPlugin(CardapioPluginInterface):
-    """
-    Yahoo plugin based on it's BOSS web search API. We're using BOSS because
-    it has no limits for search count per IP. The documentation says that Yahoo
-    could start taking money for using BOSS but even if they will, they will
-    leave a free version with limited search count available too.
 
-    Documentation can be found at:
-    http://developer.yahoo.com/search/boss/boss_guide/index.html
+	"""
+	Yahoo plugin based on it's BOSS web search API. We're using BOSS because
+	it has no limits for search count per IP. The documentation says that Yahoo
+	could start taking money for using BOSS but even if they will, they will
+	leave a free version with limited search count available too.
 
-    This plugin will try to localize each and every search but will do it on
-    a best-effort manner.
+	Documentation can be found at:
+	http://developer.yahoo.com/search/boss/boss_guide/index.html
 
-    All it's web requests are asynchronous and cancellable.
-    """
+	This plugin will try to localize each and every search but will do it on
+	a best-effort manner.
 
-    # Cardapio's variables
-    author = 'Pawel Bara'
-    name = _('Yahoo')
-    description = _("Perform a search using Yahoo")
-    version = '0.93b'
+	All it's web requests are asynchronous and cancellable.
+	"""
 
-    url = ''
-    help_text = ''
+	# Cardapio's variables
+	author = 'Pawel Bara'
+	name = _('Yahoo')
+	description = _("Perform a search using Yahoo")
+	version = '0.93b'
 
-    plugin_api_version = 1.40
+	url = ''
+	help_text = ''
 
-    search_delay_type = 'remote'
+	plugin_api_version = 1.40
 
-    default_keyword = 'yahoo'
+	search_delay_type = 'remote'
 
-    category_name = _('Yahoo Results')
-    category_tooltip = _('Results found using Yahoo')
+	default_keyword = 'yahoo'
 
-    category_icon = 'system-search'
-    icon = 'system-search'
-    fallback_icon = ''
+	category_name = _('Yahoo Results')
+	category_tooltip = _('Results found using Yahoo')
 
-    hide_from_sidebar = True
+	category_icon = 'system-search'
+	icon          = 'system-search'
+	fallback_icon = ''
 
-    def __init__(self, cardapio_proxy, category):
+	hide_from_sidebar = True
 
-        self.cardapio = cardapio_proxy
+	def __init__(self, cardapio_proxy, category):
 
-        try:
-            import json
-            import gio
-            import urllib
-            from glib import GError
-            from locale import getdefaultlocale
+		self.cardapio = cardapio_proxy
 
-        except Exception, exception:
-            self.c.write_to_log(self, 'Could not import certain modules', is_error=True)
-            self.c.write_to_log(self, exception, is_error=True)
-            self.loaded = False
-            return
+		try:
+			import json
+			import gio
+			import urllib
+			from glib import GError
+			from locale import getdefaultlocale
 
-        self.json = json
-        self.gio = gio
-        self.urllib = urllib
-        self.GError = GError
-        self.getdefaultlocale = getdefaultlocale
+		except Exception, exception:
+			self.c.write_to_log(self, 'Could not import certain modules', is_error = True)
+			self.c.write_to_log(self, exception, is_error = True)
+			self.loaded = False
+			return
 
-        self.cancellable = self.gio.Cancellable()
+		self.json             = json
+		self.gio              = gio
+		self.urllib           = urllib
+		self.GError           = GError
+		self.getdefaultlocale = getdefaultlocale
 
-        # we'll try to get locale here; we'll pass it as an argument for every
-        # Yahoo search; for some locales this will work, for others (most of
-        # them probably) it'll just be ignored; we could try to obey this table...
-        # http://developer.yahoo.com/search/boss/boss_guide/supp_regions_lang.html
-        # ... but I think it's an overkill
-        locale_code = self.getdefaultlocale()[0].lower()
-        language, region = locale_code[:2], locale_code[3:]
+		self.cancellable = self.gio.Cancellable()
 
-        # Yahoo's API arguments (my AppID and a request for a search with
-        # maximum four results in raw json format and given language)
-        self.api_base_args = {
-            'appid': 'TuNKmOzV34GRC9mrBNZMgr.vY1xPMLMH9U3PsOYkg8WvYnFawnB5gKd4GsrUbqluzg--',
-            'format': 'json',
-            'style': 'raw',
-            'lang': language,
-            'region': region
-        }
+		# we'll try to get locale here; we'll pass it as an argument for every
+		# Yahoo search; for some locales this will work, for others (most of
+		# them probably) it'll just be ignored; we could try to obey this table...
+		# http://developer.yahoo.com/search/boss/boss_guide/supp_regions_lang.html
+		# ... but I think it's an overkill
+		locale_code = self.getdefaultlocale()[0].lower()
+		language, region = locale_code[:2], locale_code[3:]
 
-        # Yahoo's base URLs (search and search more variations)
-        self.api_base_url = 'http://boss.yahooapis.com/ysearch/web/v1/{0}?{1}'
-        self.web_base_url = 'http://search.yahoo.com/search?{0}'
+		# Yahoo's API arguments (my AppID and a request for a search with
+		# maximum four results in raw json format and given language)
+		self.api_base_args = {
+			'appid'    : 'TuNKmOzV34GRC9mrBNZMgr.vY1xPMLMH9U3PsOYkg8WvYnFawnB5gKd4GsrUbqluzg--',
+			'format'   : 'json',
+			'style'    : 'raw',
+			'lang'     : language,
+			'region'   : region
+		}
 
-        self.loaded = True
+		# Yahoo's base URLs (search and search more variations)
+		self.api_base_url = 'http://boss.yahooapis.com/ysearch/web/v1/{0}?{1}'
+		self.web_base_url = 'http://search.yahoo.com/search?{0}'
 
-    def search(self, text, result_limit):
-        if len(text) == 0:
-            return
+		self.loaded = True
 
-        self.cardapio.write_to_log(self, 'searching for {0} using Yahoo'.format(text), is_debug=True)
+	def search(self, text, result_limit):
+		if len(text) == 0:
+			return
 
-        self.cancellable.reset()
+		self.cardapio.write_to_log(self, 'searching for {0} using Yahoo'.format(text), is_debug = True)
 
-        # prepare final API URL
-        current_args = self.api_base_args.copy()
-        current_args['count'] = result_limit
+		self.cancellable.reset()
 
-        final_url = self.api_base_url.format(self.urllib.quote(str(text), ''), self.urllib.urlencode(current_args))
+		# prepare final API URL
+		current_args = self.api_base_args.copy()
+		current_args['count'] = result_limit
 
-        self.cardapio.write_to_log(self, 'final API URL: {0}'.format(final_url), is_debug=True)
+		final_url = self.api_base_url.format(self.urllib.quote(str(text), ''), self.urllib.urlencode(current_args))
 
-        # asynchronous and cancellable IO call
-        self.current_stream = self.gio.File(final_url)
-        self.current_stream.load_contents_async(self.show_search_results,
-                                                cancellable=self.cancellable,
-                                                user_data=text)
+		self.cardapio.write_to_log(self, 'final API URL: {0}'.format(final_url), is_debug = True)
 
-    def show_search_results(self, gdaemonfile, result, text):
-        """
-        Callback to asynchronous IO (Yahoo's API call).
-        """
+		# asynchronous and cancellable IO call
+		self.current_stream = self.gio.File(final_url)
+		self.current_stream.load_contents_async(self.show_search_results,
+			cancellable = self.cancellable,
+			user_data = text)
 
-        # watch out for connection problems
-        try:
-            json_body = self.current_stream.load_contents_finish(result)[0]
+	def show_search_results(self, gdaemonfile, result, text):
+		"""
+		Callback to asynchronous IO (Yahoo's API call).
+		"""
 
-            # watch out for empty input
-            if len(json_body) == 0:
-                return
+		# watch out for connection problems
+		try:
+			json_body = self.current_stream.load_contents_finish(result)[0]
 
-            response = self.json.loads(json_body)
-        except (ValueError, self.GError) as ex:
-            self.cardapio.handle_search_error(self, 'error while obtaining data: {0}'.format(str(ex)))
-            return
+			# watch out for empty input
+			if len(json_body) == 0:
+				return
 
-        # decode the result
-        try:
-            items = []
+			response = self.json.loads(json_body)
+		except (ValueError, self.GError) as ex:
+			self.cardapio.handle_search_error(self, 'error while obtaining data: {0}'.format(str(ex)))
+			return
 
-            response_body = response['ysearchresponse']
+		# decode the result
+		try:
+			items = []
 
-            # if we have any results...
-            if response_body['totalhits'] != '0':
-                # remember them all
-                for item in response_body['resultset_web']:
-                    items.append({
-                        'name': item['title'],
-                        'tooltip': item['url'],
-                        'icon name': 'text-html',
-                        'type': 'xdg',
-                        'command': item['url'],
-                        'context menu': None
-                    })
+			response_body = response['ysearchresponse']
 
-            # always add 'Search more...' item
-            search_more_args = {'p': text}
+			# if we have any results...
+			if response_body['totalhits'] != '0':
+				# remember them all
+				for item in response_body['resultset_web']:
+					items.append({
+						'name'         : item['title'],
+						'tooltip'      : item['url'],
+						'icon name'    : 'text-html',
+						'type'         : 'xdg',
+						'command'      : item['url'],
+						'context menu' : None
+					})
 
-            items.append({
-                'name': _('Show additional results'),
-                'tooltip': _('Show additional search results in your web browser'),
-                'icon name': 'system-search',
-                'type': 'xdg',
-                # TODO: cardapio later unquotes this and then quotes it again;  # it's screwing my quotation
-                'command': self.web_base_url.format(self.urllib.urlencode(search_more_args)),
-                'context menu': None
-            })
+			# always add 'Search more...' item
+			search_more_args = { 'p' : text }
 
-            # pass the results to Cardapio
-            self.cardapio.handle_search_result(self, items, text)
+			items.append({
+				'name'         : _('Show additional results'),
+				'tooltip'      : _('Show additional search results in your web browser'),
+				'icon name'    : 'system-search',
+				'type'         : 'xdg',
+				# TODO: cardapio later unquotes this and then quotes it again;
+				# it's screwing my quotation
+				'command'      : self.web_base_url.format(self.urllib.urlencode(search_more_args)),
+				'context menu' : None
+			})
 
-        except KeyError:
-            self.cardapio.handle_search_error(self, "Incorrect Yahoo's JSON structure")
+			# pass the results to Cardapio
+			self.cardapio.handle_search_result(self, items, text)
 
-    def cancel(self):
-        self.cardapio.write_to_log(self, 'cancelling a recent Yahoo search (if any)', is_debug=True)
+		except KeyError:
+			self.cardapio.handle_search_error(self, "Incorrect Yahoo's JSON structure")
 
-        if not self.cancellable.is_cancelled():
-            self.cancellable.cancel()
+	def cancel(self):
+		self.cardapio.write_to_log(self, 'cancelling a recent Yahoo search (if any)', is_debug = True)
+
+		if not self.cancellable.is_cancelled():
+			self.cancellable.cancel()

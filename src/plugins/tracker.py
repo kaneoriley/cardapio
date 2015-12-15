@@ -16,73 +16,75 @@
 #
 
 class CardapioPlugin(CardapioPluginInterface):
-    author = _('Cardapio Team')
-    name = _('File search')
-    description = _('Search local files and folders indexed with Tracker')
 
-    url = ''
-    help_text = ''
-    version = '1.43'
+	author             = _('Cardapio Team')
+	name               = _('File search')
+	description        = _('Search local files and folders indexed with Tracker')
 
-    plugin_api_version = 1.40
+	url                = ''
+	help_text          = ''
+	version            = '1.43'
 
-    search_delay_type = 'local'
+	plugin_api_version = 1.40
 
-    default_keyword = 'tracker'
+	search_delay_type  = 'local'
 
-    category_name = _('Local Results')
-    category_icon = 'system-search'
-    icon = 'system-search'
-    category_tooltip = _('Results found in your computer')
-    hide_from_sidebar = True
+	default_keyword    = 'tracker'
 
-    def __init__(self, cardapio_proxy, category):
+	category_name      = _('Local Results')
+	category_icon      = 'system-search'
+	icon               = 'system-search'
+	category_tooltip   = _('Results found in your computer')
+	hide_from_sidebar  = True
 
-        self.c = cardapio_proxy
 
-        try:
-            from os.path import split
-            from urllib2 import quote, splittype
+	def __init__(self, cardapio_proxy, category):
 
-        except Exception, exception:
-            self.c.write_to_log(self, 'Could not import certain modules', is_error=True)
-            self.c.write_to_log(self, exception, is_error=True)
-            self.loaded = False
-            return
+		self.c = cardapio_proxy
 
-        self.split = split
-        self.quote = quote
-        self.splittype = splittype
+		try:
+			from os.path import split
+			from urllib2 import quote, splittype
 
-        self.tracker = None
-        bus = dbus.SessionBus()
+		except Exception, exception:
+			self.c.write_to_log(self, 'Could not import certain modules', is_error = True)
+			self.c.write_to_log(self, exception, is_error = True)
+			self.loaded = False
+			return
+		
+		self.split     = split
+		self.quote     = quote
+		self.splittype = splittype
 
-        if bus.request_name('org.freedesktop.Tracker1') == dbus.bus.REQUEST_NAME_REPLY_IN_QUEUE:
-            tracker_object = bus.get_object('org.freedesktop.Tracker1', '/org/freedesktop/Tracker1/Resources')
-            self.tracker = dbus.Interface(tracker_object, 'org.freedesktop.Tracker1.Resources')
-        else:
-            self.c.write_to_log(self, 'Could not connect to Tracker', is_error=True)
-            self.loaded = False
-            bus.release_name('org.freedesktop.Tracker1')
-            return
+		self.tracker = None
+		bus = dbus.SessionBus()
 
-        if (which("tracker-needle") is not None):
-            self.action_command = r"tracker-needle '%s'"
-        else:
-            self.action_command = r"tracker-search-tool '%s'"
+		if bus.request_name('org.freedesktop.Tracker1') == dbus.bus.REQUEST_NAME_REPLY_IN_QUEUE:
+			tracker_object = bus.get_object('org.freedesktop.Tracker1', '/org/freedesktop/Tracker1/Resources')
+			self.tracker = dbus.Interface(tracker_object, 'org.freedesktop.Tracker1.Resources') 
+		else:
+			self.c.write_to_log(self, 'Could not connect to Tracker', is_error = True)
+			self.loaded = False
+			bus.release_name('org.freedesktop.Tracker1')
+			return 
 
-        self.action = {
-            'name': _('Show additional results'),
-            'tooltip': _('Show additional search results in the Tracker search tool'),
-            'icon name': 'system-search',
-            'type': 'callback',
-            'command': self.more_results_action,
-            'context menu': None,
-        }
+		if (which("tracker-needle") is not None):
+			self.action_command = r"tracker-needle '%s'"
+		else:
+			self.action_command = r"tracker-search-tool '%s'"
 
-        if get_output('tracker-info -V | grep 0.9'):
-            self.tracker_case_insensitive = True
-            self.sparql_query = """
+		self.action = {
+			'name'         : _('Show additional results'),
+			'tooltip'      : _('Show additional search results in the Tracker search tool'),
+			'icon name'    : 'system-search',
+			'type'         : 'callback',
+			'command'      : self.more_results_action,
+			'context menu' : None,
+			}
+
+		if get_output('tracker-info -V | grep 0.9'):
+			self.tracker_case_insensitive = True
+			self.sparql_query = """
 					SELECT ?uri ?mime
 					WHERE { 
 						?item a nie:InformationElement;
@@ -93,10 +95,10 @@ class CardapioPlugin(CardapioPluginInterface):
 						}
 					ORDER BY ASC(?uri)
 					LIMIT %d
-				"""
-        else:
-            self.tracker_case_insensitive = False
-            self.sparql_query = """
+				""" 
+		else:
+			self.tracker_case_insensitive = False
+			self.sparql_query = """
 					SELECT ?uri ?mime
 					WHERE { 
 						?item a nie:InformationElement;
@@ -107,61 +109,66 @@ class CardapioPlugin(CardapioPluginInterface):
 						}
 					ORDER BY ASC(?uri)
 					LIMIT %d
-				"""
-        # replaced:
-        #   FILTER (fn:contains(?uri, "%s"))
-        # with:
-        #   FILTER (regex(?uri, "%s", "i"))
+				""" 
+				# replaced: 
+				#   FILTER (fn:contains(?uri, "%s"))
+				# with:
+				#   FILTER (regex(?uri, "%s", "i"))
 
-        self.loaded = True
+		self.loaded = True
 
-    def search(self, text, result_limit):
 
-        self.current_query = text
-        text = self.quote(text)
-        if self.tracker_case_insensitive: text = text.lower()
+	def search(self, text, result_limit):
 
-        self.tracker.SparqlQuery(self.sparql_query % (text, result_limit),
-                                 dbus_interface='org.freedesktop.Tracker1.Resources',
-                                 reply_handler=self.prepare_and_handle_search_result,
-                                 error_handler=self.handle_search_error
-        )
+		self.current_query = text
+		text = self.quote(text)
+		if self.tracker_case_insensitive: text = text.lower()
 
-    def handle_search_error(self, error):
+		self.tracker.SparqlQuery(self.sparql_query % (text, result_limit),
+			dbus_interface='org.freedesktop.Tracker1.Resources',
+			reply_handler=self.prepare_and_handle_search_result,
+			error_handler=self.handle_search_error
+			)
 
-        self.c.handle_search_error(self, error)
 
-    def prepare_and_handle_search_result(self, results):
+	def handle_search_error(self, error):
 
-        formatted_results = []
+		self.c.handle_search_error(self, error)
 
-        for result in results:
-            dummy, canonical_path = self.splittype(result[0])
-            parent_name, child_name = self.split(canonical_path)
-            icon_name = result[1]
 
-            formatted_result = {
-                'name': child_name,
-                'icon name': icon_name,
-                'tooltip': result[0],
-                'command': canonical_path,
-                'type': 'xdg',
-                'context menu': None,
-            }
+	def prepare_and_handle_search_result(self, results):
 
-            formatted_results.append(formatted_result)
+		formatted_results = []	
 
-        if results:
-            formatted_results.append(self.action)
+		for result in results:
+			
+			dummy, canonical_path = self.splittype(result[0])
+			parent_name, child_name = self.split(canonical_path)
+			icon_name = result[1]
 
-        self.c.handle_search_result(self, formatted_results, self.current_query)
+			formatted_result = {
+				'name'         : child_name,
+				'icon name'    : icon_name,
+				'tooltip'      : result[0],
+				'command'      : canonical_path,
+				'type'         : 'xdg',
+				'context menu' : None,
+				}
 
-    def more_results_action(self, text):
+			formatted_results.append(formatted_result)
 
-        try:
-            subprocess.Popen(self.action_command % text, shell=True)
-        except OSError, e:
-            self.c.write_to_log(self, 'Error launching plugin action.', is_error=True)
-            self.c.write_to_log(self, e, is_error=True)
+		if results:
+			formatted_results.append(self.action)
+
+		self.c.handle_search_result(self, formatted_results, self.current_query)
+
+
+	def more_results_action(self, text):
+
+		try:
+			subprocess.Popen(self.action_command % text, shell = True)
+		except OSError, e:
+			self.c.write_to_log(self, 'Error launching plugin action.', is_error = True)
+			self.c.write_to_log(self, e, is_error = True)
 
 

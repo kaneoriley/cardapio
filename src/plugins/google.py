@@ -16,153 +16,160 @@
 #
 
 class CardapioPlugin(CardapioPluginInterface):
-    author = _('Cardapio Team')
-    name = _('Google')
-    description = _('Perform quick Google searches in <b>all</b> languages')
 
-    url = ''
-    help_text = ''
-    version = '1.41'
+	author             = _('Cardapio Team')
+	name               = _('Google')
+	description        = _('Perform quick Google searches in <b>all</b> languages')
 
-    plugin_api_version = 1.40
+	url                = ''
+	help_text          = ''
+	version            = '1.41'
 
-    search_delay_type = 'remote'
+	plugin_api_version = 1.40
 
-    default_keyword = 'google'
+	search_delay_type  = 'remote'
 
-    category_name = _('Web Results')
-    category_icon = 'system-search'
-    icon = 'system-search'
-    category_tooltip = _('Results found with Google')
-    hide_from_sidebar = True
+	default_keyword    = 'google'
 
-    def __init__(self, cardapio_proxy, category):
+	category_name      = _('Web Results')
+	category_icon      = 'system-search'
+	icon               = 'system-search'
+	category_tooltip   = _('Results found with Google')
+	hide_from_sidebar  = True
 
-        self.c = cardapio_proxy
 
-        try:
-            from gio import File, Cancellable
-            from urllib2 import quote
-            from simplejson import loads
-            from locale import getdefaultlocale
-            from glib import GError
+	def __init__(self, cardapio_proxy, category):
 
-        except Exception, exception:
-            self.c.write_to_log(self, 'Could not import certain modules', is_error=True)
-            self.c.write_to_log(self, exception, is_error=True)
-            self.loaded = False
-            return
+		self.c = cardapio_proxy
+		
+		try:
+			from gio import File, Cancellable
+			from urllib2 import quote
+			from simplejson import loads
+			from locale import getdefaultlocale
+			from glib import GError
 
-        self.File = File
-        self.Cancellable = Cancellable
-        self.quote = quote
-        self.loads = loads
-        self.getdefaultlocale = getdefaultlocale
-        self.GError = GError
+		except Exception, exception:
+			self.c.write_to_log(self, 'Could not import certain modules', is_error = True)
+			self.c.write_to_log(self, exception, is_error = True)
+			self.loaded = False
+			return
+		
+		self.File             = File
+		self.Cancellable      = Cancellable
+		self.quote            = quote
+		self.loads            = loads
+		self.getdefaultlocale = getdefaultlocale
+		self.GError           = GError
 
-        language, encoding = self.getdefaultlocale()
-        google_interface_language_format = language.replace('_', '-')
+		language, encoding = self.getdefaultlocale()
+		google_interface_language_format = language.replace('_', '-')
 
-        # fix codes to match those at http://sites.google.com/site/tomihasa/google-language-codes
+		# fix codes to match those at http://sites.google.com/site/tomihasa/google-language-codes
 
-        if google_interface_language_format[:2] == 'en':
-            google_interface_language_format = 'en'
+		if google_interface_language_format[:2] == 'en':
+			google_interface_language_format = 'en'
 
-        if google_interface_language_format == 'pt':
-            google_interface_language_format = 'pt-PT'
+		if google_interface_language_format == 'pt':
+			google_interface_language_format = 'pt-PT'
 
-        if google_interface_language_format == 'zh-HK':
-            google_interface_language_format = 'zh-CN'
+		if google_interface_language_format == 'zh-HK':
+			google_interface_language_format = 'zh-CN'
 
-        self.query_url = r'http://ajax.googleapis.com/ajax/services/search/web?v=1.0&rsz={0}&q={1}'
+		self.query_url = r'http://ajax.googleapis.com/ajax/services/search/web?v=1.0&rsz={0}&q={1}'
 
-        self.search_controller = self.Cancellable()
+		self.search_controller = self.Cancellable()
 
-        self.action_command = "xdg-open 'http://www.google.com/search?q=%%s&hl=%s'" % google_interface_language_format
-        self.action = {
-            'name': _('Show additional results'),
-            'tooltip': _('Show additional search results in your web browser'),
-            'icon name': 'system-search',
-            'type': 'callback',
-            'command': self.more_results_action,
-            'context menu': None,
-        }
+		self.action_command = "xdg-open 'http://www.google.com/search?q=%%s&hl=%s'" % google_interface_language_format
+		self.action = {
+			'name'         : _('Show additional results'),
+			'tooltip'      : _('Show additional search results in your web browser'),
+			'icon name'    : 'system-search',
+			'type'         : 'callback',
+			'command'      : self.more_results_action,
+			'context menu' : None,
+			}
 
-        self.loaded = True
+		self.loaded = True
 
-    def search(self, text, result_limit):
 
-        # TODO: I'm sure this is not the best way of doing remote procedure
-        # calls, but I can't seem to find anything that is this easy to use and
-        # compatible with gtk. Argh :(
+	def search(self, text, result_limit):
 
-        # TODO: we should really check if there's an internet connection before
-        # proceeding...
+		# TODO: I'm sure this is not the best way of doing remote procedure
+		# calls, but I can't seem to find anything that is this easy to use and
+		# compatible with gtk. Argh :(
 
-        self.current_query = text
-        text = self.quote(str(text))
+		# TODO: we should really check if there's an internet connection before
+		# proceeding...
 
-        # The google search API only supports two sizes for the result list,
-        # that is: small (4 results) or large (8 results). So this plugin
-        # chooses the most appropriate given the 'search results limit' user
-        # preference.
+		self.current_query = text
+		text = self.quote(str(text))
 
-        query = self.query_url.format('large' if result_limit >= 8 else 'small', text)
+		# The google search API only supports two sizes for the result list,
+		# that is: small (4 results) or large (8 results). So this plugin
+		# chooses the most appropriate given the 'search results limit' user
+		# preference.
 
-        self.stream = self.File(query)
+		query = self.query_url.format('large' if result_limit >= 8 else 'small', text)
 
-        self.search_controller.reset()
-        self.stream.load_contents_async(self.handle_search_result, cancellable=self.search_controller)
+		self.stream = self.File(query)
 
-    def cancel(self):
+		self.search_controller.reset()
+		self.stream.load_contents_async(self.handle_search_result, cancellable = self.search_controller)
 
-        if not self.search_controller.is_cancelled():
-            self.search_controller.cancel()
 
-    def handle_search_result(self, gdaemonfile=None, response=None):
+	def cancel(self):
 
-        try:
-            response = self.stream.load_contents_finish(response)[0]
+		if not self.search_controller.is_cancelled():
+			self.search_controller.cancel()
 
-        except self.GError, e:
-            # no need to worry if there's no response: maybe there's no internet
-            # connection...
-            self.c.handle_search_error(self, 'no response')
-            return
+	
+	def handle_search_result(self, gdaemonfile = None, response = None):
 
-        raw_results = self.loads(response)
+		try:
+			response = self.stream.load_contents_finish(response)[0]
 
-        parsed_results = []
+		except self.GError, e:
+			# no need to worry if there's no response: maybe there's no internet
+			# connection...
+			self.c.handle_search_error(self, 'no response')
+			return
 
-        if 'Error' in raw_results:
-            self.c.handle_search_error(self, raw_results['Error'])
-            return
+		raw_results = self.loads(response)
 
-        for raw_result in raw_results['responseData']['results']:
-            item = {
-                'name': raw_result['titleNoFormatting'],
-                'tooltip': raw_result['url'],
-                'icon name': 'text-html',
-                'type': 'xdg',
-                'command': raw_result['url'],
-                'context menu': None,
-            }
-            parsed_results.append(item)
+		parsed_results = [] 
 
-        if parsed_results:
-            parsed_results.append(self.action)
+		if 'Error' in raw_results:
+			self.c.handle_search_error(self, raw_results['Error'])
+			return
+		
+		for raw_result in raw_results['responseData']['results']:
 
-        self.c.handle_search_result(self, parsed_results, self.current_query)
+			item = {
+				'name'         : raw_result['titleNoFormatting'],
+				'tooltip'      : raw_result['url'],
+				'icon name'    : 'text-html',
+				'type'         : 'xdg',
+				'command'      : raw_result['url'],
+				'context menu' : None,
+				}
+			parsed_results.append(item)
 
-    def more_results_action(self, text):
+		if parsed_results:
+			parsed_results.append(self.action)
 
-        text = text.replace("'", r"\'")
-        text = text.replace('"', r'\"')
+		self.c.handle_search_result(self, parsed_results, self.current_query)
 
-        try:
-            subprocess.Popen(self.action_command % text, shell=True)
-        except OSError, e:
-            self.c.write_to_log(self, 'Error launching plugin action.', is_error=True)
-            self.c.write_to_log(self, e, is_error=True)
+
+	def more_results_action(self, text):
+
+		text = text.replace("'", r"\'")
+		text = text.replace('"', r'\"')
+
+		try:
+			subprocess.Popen(self.action_command % text, shell = True)
+		except OSError, e:
+			self.c.write_to_log(self, 'Error launching plugin action.', is_error = True)
+			self.c.write_to_log(self, e, is_error = True)
 
 
