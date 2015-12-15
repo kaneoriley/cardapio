@@ -1624,6 +1624,11 @@ class Cardapio(dbus.service.Object):
 		if anchor_bottom and y - window_height < screen_y: 
 			y = screen_y + screen_height
 
+		if x < screen_x + 64: x = screen_x + 64
+		if y < screen_y + 64: y = screen_y + 64
+		if x + 64 > screen_x + screen_width: x = screen_x + screen_width - 64
+		if y + 64 > screen_y + screen_height: y = screen_y + screen_height - 64
+
 		return x, y, anchor_right, anchor_bottom
 
 
