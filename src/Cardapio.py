@@ -52,7 +52,7 @@ try:
 	import dbus, dbus.service
 
 	from time import time
-	from xdg import DesktopEntry
+	from xdg import DesktopEntry, BaseDirectory
 	from pango import ELLIPSIZE_END
 	from threading import Lock, Thread
 	from locale import setlocale, LC_ALL
@@ -453,7 +453,7 @@ class Cardapio(dbus.service.Object):
 		self._plugin_database['pinned'] = {'class' : plugin_class, 'instances' : []}
 
 		plugin_dirs = [
-			os.path.join(DesktopEntry.xdg_config_home, 'Cardapio', 'plugins'),
+			os.path.join(BaseDirectory.xdg_config_home, 'Cardapio', 'plugins'),
 			os.path.join(self.cardapio_path, 'plugins'),
 			]
 
@@ -631,7 +631,7 @@ class Cardapio(dbus.service.Object):
 		~/.cache/Cardapio)
 		"""
 
-		self._config_folder_path = os.path.join(DesktopEntry.xdg_config_home, 'Cardapio')
+		self._config_folder_path = os.path.join(BaseDirectory.xdg_config_home, 'Cardapio')
 
 		if not os.path.exists(self._config_folder_path):
 			os.mkdir(self._config_folder_path)
@@ -640,7 +640,7 @@ class Cardapio(dbus.service.Object):
 			fatal_error('Error creating config folder!', 'Cannot create folder "%s" because a file with that name already exists!' % self._config_folder_path)
 			self._quit()
 
-		self._cache_folder_path = os.path.join(DesktopEntry.xdg_cache_home, 'Cardapio')
+		self._cache_folder_path = os.path.join(BaseDirectory.xdg_cache_home, 'Cardapio')
 
 		if not os.path.exists(self._cache_folder_path):
 			os.mkdir(self._cache_folder_path)
@@ -1931,7 +1931,7 @@ class Cardapio(dbus.service.Object):
 
 		self._add_app_button(_('Home'), 'user-home', section, 'xdg', self._home_folder_path, _('Open your personal folder'), self._app_list)
 
-		xdg_folders_file_path = os.path.join(DesktopEntry.xdg_config_home, 'user-dirs.dirs')
+		xdg_folders_file_path = os.path.join(BaseDirectory.xdg_config_home, 'user-dirs.dirs')
 		xdg_folders_file = file(xdg_folders_file_path, 'r')
 		# TODO: xdg_folders_file = codecs.open(xdg_folders_file_path, mode='r', encoding='utf-8')
 
@@ -1952,23 +1952,25 @@ class Cardapio(dbus.service.Object):
 		xdg_folders_file.close()
 
 		bookmark_file_path = os.path.join(self._home_folder_path, '.gtk-bookmarks')
-		bookmark_file = file(bookmark_file_path, 'r')
-		# TODO: xdg_folders_file = codecs.open(bookmark_file_path, mode='r', encoding='utf-8')
 
-		for line in bookmark_file.readlines():
-			if line.strip(' \n\r\t'):
+		if os.path.exists(bookmark_file_path):
+			bookmark_file = file(bookmark_file_path, 'r')
+			# TODO: xdg_folders_file = codecs.open(bookmark_file_path, mode='r', encoding='utf-8')
 
-				name, path = self._get_place_name_and_path(line)
-				name = urllib2.unquote(name)
+			for line in bookmark_file.readlines():
+				if line.strip(' \n\r\t'):
 
-				path_type, dummy = urllib2.splittype(path)
+					name, path = self._get_place_name_and_path(line)
+					name = urllib2.unquote(name)
 
-				gio_path_obj = gio.File(path)
-				if not gio_path_obj.query_exists() and path_type not in Cardapio.REMOTE_PROTOCOLS: continue
+					path_type, dummy = urllib2.splittype(path)
 
-				self._add_place(name, path, 'folder')
+					gio_path_obj = gio.File(path)
+					if not gio_path_obj.query_exists() and path_type not in Cardapio.REMOTE_PROTOCOLS: continue
 
-		bookmark_file.close()
+					self._add_place(name, path, 'folder')
+
+			bookmark_file.close()
 
 		if self._bookmark_monitor is None:
 			self._bookmark_monitor = gio.File(bookmark_file_path).monitor_file() # keep a reference to avoid getting it garbage-collected
